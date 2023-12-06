@@ -1,3 +1,12 @@
+
+mutable struct BBNode
+    parent::Union{BBNode, Nothing}
+    sons::Vector{Union{BBNode, Nothing}}
+    model::Model
+    val::Float64
+    status::Symbol # :
+end
+
 mutable struct BB
     UB::Float64
     LB::Float64
@@ -5,23 +14,16 @@ mutable struct BB
     opt::Union{BBNode, Nothing}
 end
 
-mutable struct BBNode
-    parent::Union{BBNode, Nothing}
-    sons::Vector{Union{BBNode, Nothing}}
-    model::Model
-    val::Float64
-    status::Symbols # :
-end
-
 function createTree(model::Model)
     root = BBNode(nothing, [nothing, nothing], model, 0.0, :open)
     tree = BB(Inf, -Inf, root, nothing)
-    root.tree = tree
+    #root.tree = tree
     return tree
 end
 
 function solve!(tree::BB)
     candidates = [tree.root]
+    print("candidates    ", candidates)
     while !isempty(candidates)
         node = pop!(candidates)
         solveNode!(node, tree)
@@ -40,6 +42,7 @@ end
 
 function solveNode!(parent::BBNode, tree::BB)
     optimize!(parent.model)
+    println("ESTE MODELO     ", parent.model)
     if termination_status(parent.model) == MOI.OPTIMAL
         parent.val = objective_value(parent.model)
         
