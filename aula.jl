@@ -7,10 +7,11 @@ mutable struct Node
 end
 
 mutable struct Problem
-    UB::Float64
     root::Node
+    z_UB::Float64
     z_BEST::Float64
     x_BEST::Vector{Float64}
+    status::Symbol
 end
 
 function searchForMostFractional(x)
@@ -18,11 +19,11 @@ function searchForMostFractional(x)
     return i
 end
 
-function createSons!(node::Node)
+function createSons!(node::Node, optimizer)
     model_left, ref_left = copy_model(node.model)
     model_right, ref_right = copy_model(node.model)
-    set_optimizer(model_left, Gurobi.Optimizer)
-    set_optimizer(model_right, Gurobi.Optimizer)
+    set_optimizer(model_left, optimizer)
+    set_optimizer(model_right, optimizer)
 
     x_val = value.(node.model[:x])
     x_left = ref_left[x]
@@ -55,15 +56,63 @@ function isXInteger(x)
     return true
 end
 
-# Problem global variables
+function solveBranchAndBound(m::Model, optimizer, ϵ = 0.01, MAX_ITER=100, M=10e9)
+    # Solve relaxed problem
+    undo = relax_integrality(m)
+    optimize!(m)
 
-ϵ = 0.01
-M = 10e9
-MAX_ITER = 100
-k = 1
+    # Save solution
+    root = Node(m, nothing, nothing)
+    problem = Problem(root, objective_value(m), -Inf, [NaN], :yet_unsolved)
 
-# Initialization
+    # Loop
+    k = 1
+    next_problem = problem.root
+    while (problem.z_UB - problem.z_BEST) > ϵ && k < MAX_ITER
+        # Create sons
+        createSons!(next_problem, optimizer)
 
+        # Solve sons
+        optimize!(next_problem.left.model)
+        optimize!(next_problem.right.model)
+
+        # Select son
+        which_one = problemSelectionCriteria(next_problem.left.model, next_problem.right.model)
+        if which_one == :left
+            next_problem = next_problem.left
+        else
+            next_problem = next_problem.right
+        end
+
+        # Update problem information
+        problem.z_UB = objective_value(next_problem.model)
+
+        # Criteria if is integer
+        if isXInteger(value.(next_problem.model[:x]))
+            problem.z_BEST = objective_value(next_problem.model)
+            problem.x_BEST = value.(next_problem.model[:x])
+            problem.status = :optimal
+        end
+
+        # Check if unbounded
+        if objective_value(next_problem.model) > M
+            problem.status = :unbounded
+            break
+        end
+
+        # Check if infeasible
+        if objective_value(next_problem.model) < -M
+            problem.status = :infeasible
+            break
+        end
+
+        k += 1
+    end
+
+    return problem
+end
+
+# Original integer programming model
 m = Model(Gurobi.Optimizer)
 set_silent(m)
 @variable(m, x[1:2], Int)
@@ -71,59 +120,8 @@ set_silent(m)
 @constraint(m, x[1] + 2 * x[2] <= 4)
 @objective(m, Max, 4 * x[1] + 3 * x[2])
 
-# Solve relaxed problem
-
-undo = relax_integrality(m)
-optimize!(m)
-
-# Save solution
-
-root = Node(m, nothing, nothing)
-problem = Problem(objective_value(m), root, -Inf, [NaN])
-
-# Loop
-
-next_problem = problem.root
-
-while (problem.UB - problem.z_BEST) > ϵ && k < MAX_ITER
-    # Create sons
-    createSons!(next_problem)
-
-    # Solve sons
-    optimize!(next_problem.left.model)
-    optimize!(next_problem.right.model)
-
-    # Select son
-    which_one = problemSelectionCriteria(next_problem.left.model, next_problem.right.model)
-    if which_one == :left
-        next_problem = next_problem.left
-    else
-        next_problem = next_problem.right
-    end
-
-    # Update problem information
-    problem.UB = objective_value(next_problem.model)
-
-    # Criteria if is integer
-    if isXInteger(value.(next_problem.model[:x]))
-        problem.z_BEST = objective_value(next_problem.model)
-        problem.x_BEST = value.(next_problem.model[:x])
-    end
-
-    # Check if unbounded
-    if objective_value(next_problem.model) > M
-        println("Ilimitado")
-        break
-    end
-
-    # Check if infeasible
-    if objective_value(next_problem.model) < -M
-        println("Inviável")
-        break
-    end
-
-    k += 1
-end
-
+# Apply branch and bound
+problem = solveBranchAndBound(m, Gurobi.Optimizer)
+println(problem.status)
 println(problem.z_BEST)
 println(problem.x_BEST)
