@@ -45,9 +45,27 @@ function problemSelectionCriteria(problem1::Model, problem2::Model)
     end
 end
 
+function isXInteger(x)
+    δ = 10e-4
+    for i in 1:length(x)
+        if abs(x[i] - round(x[i])) > δ
+            return false
+        end
+    end
+    return true
+end
+
+# Problem global variables
+
+ϵ = 0.01
+M = 10e9
+MAX_ITER = 100
+k = 1
+
 # Initialization
 
 m = Model(Gurobi.Optimizer)
+set_silent(m)
 @variable(m, x[1:2], Int)
 @constraint(m, 2 * x[1] + x[2] <= 4)
 @constraint(m, x[1] + 2 * x[2] <= 4)
@@ -65,69 +83,47 @@ problem = Problem(objective_value(m), root, -Inf, [NaN])
 
 # Loop
 
+next_problem = problem.root
 
-# while (problem.UB - problem.z_BEST) > ϵ
+while (problem.UB - problem.z_BEST) > ϵ && k < MAX_ITER
+    # Create sons
+    createSons!(next_problem)
 
+    # Solve sons
+    optimize!(next_problem.left.model)
+    optimize!(next_problem.right.model)
 
-# Create sons
+    # Select son
+    which_one = problemSelectionCriteria(next_problem.left.model, next_problem.right.model)
+    if which_one == :left
+        next_problem = next_problem.left
+    else
+        next_problem = next_problem.right
+    end
 
-createSons!(problem.root)
+    # Update problem information
+    problem.UB = objective_value(next_problem.model)
 
-# Solve sons
+    # Criteria if is integer
+    if isXInteger(value.(next_problem.model[:x]))
+        problem.z_BEST = objective_value(next_problem.model)
+        problem.x_BEST = value.(next_problem.model[:x])
+    end
 
-optimize!(problem.root.left.model)
-optimize!(problem.root.right.model)
+    # Check if unbounded
+    if objective_value(next_problem.model) > M
+        println("Ilimitado")
+        break
+    end
 
-value.(problem.root.left.model[:x])
-objective_value(problem.root.left.model)
+    # Check if infeasible
+    if objective_value(next_problem.model) < -M
+        println("Inviável")
+        break
+    end
 
-value.(problem.root.right.model[:x])
-objective_value(problem.root.right.model)
-
-which_one = problemSelectionCriteria(problem.root.left.model, problem.root.right.model)
-
-if which_one == :left
-    next_problem = problem.root.left
-    other_problem = problem.root.right
-else
-    next_problem = problem.root.right
-    other_problem = problem.root.left
+    k += 1
 end
 
-problem.UB = objective_value(next_problem.model)
-
-createSons!(next_problem)
-
-optimize!(next_problem.left.model)
-optimize!(next_problem.right.model)
-
-value.(next_problem.left.model[:x])
-objective_value(next_problem.left.model)
-
-value.(next_problem.right.model[:x])
-objective_value(next_problem.right.model)
-
-
-
-createSons!(other_problem)
-
-optimize!(other_problem.left.model)
-optimize!(other_problem.right.model)
-
-value.(other_problem.left.model[:x])
-objective_value(other_problem.left.model)
-
-value.(other_problem.right.model[:x])
-objective_value(other_problem.right.model)
-
-# Check
-"""
-if isa(value.(x), Integer)
-    println("Ótimo")
-    println(x)
-elseif objective_value(m) > 10e9
-    println("Ilimitado")
-elseif objective_value(m) < -10e9
-    println("Inviável")
-end
-"""
+println(problem.z_BEST)
+println(problem.x_BEST)
