@@ -8,10 +8,41 @@ end
 
 mutable struct Problem
     UB::Float64
-    LB::Float64
     root::Node
     z_BEST::Float64
     x_BEST::Vector{Float64}
+end
+
+function searchForMostFractional(x)
+    _, i = findmin(abs.(x - floor.(x) .- 0.5))
+    return i
+end
+
+function createSons!(node::Node)
+    model_left, ref_left = copy_model(node.model)
+    model_right, ref_right = copy_model(node.model)
+    set_optimizer(model_left, Gurobi.Optimizer)
+    set_optimizer(model_right, Gurobi.Optimizer)
+
+    x_val = value.(node.model[:x])
+    x_left = ref_left[x]
+    x_right = ref_right[x]
+
+    i = searchForMostFractional(x_val)
+
+    @constraint(model_left, x_left[i] <= floor(value.(x_val)[i]))
+    @constraint(model_right, x_right[i] >= ceil(value.(x_val)[i]))
+
+    node.left = Node(model_left, nothing, nothing)
+    node.right = Node(model_right, nothing, nothing)
+end
+
+function problemSelectionCriteria(problem1::Model, problem2::Model)
+    if objective_value(problem1) > objective_value(problem2)
+        return :left
+    else
+        return :right
+    end
 end
 
 # Initialization
@@ -30,28 +61,15 @@ optimize!(m)
 # Save solution
 
 root = Node(m, nothing, nothing)
-problem = Problem(Inf, -Inf, root, -Inf, [NaN])
+problem = Problem(objective_value(m), root, -Inf, [NaN])
+
+# Loop
+
+
+# while (problem.UB - problem.z_BEST) > ϵ
+
 
 # Create sons
-
-function createSons!(node::Node)
-    model_left, ref_left = copy_model(node.model)
-    model_right, ref_right = copy_model(node.model)
-    set_optimizer(model_left, Gurobi.Optimizer)
-    set_optimizer(model_right, Gurobi.Optimizer)
-
-    x_val = value.(node.model[:x])
-    x_left = ref_left[x]
-    x_right = ref_right[x]
-
-    i = 1 # findMostFractional
-
-    @constraint(model_left, x_left[i] <= floor(value.(x_val)[i]))
-    @constraint(model_right, x_right[i] >= ceil(value.(x_val)[i]))
-
-    node.left = Node(model_left, nothing, nothing)
-    node.right = Node(model_right, nothing, nothing)
-end
 
 createSons!(problem.root)
 
@@ -66,28 +84,41 @@ objective_value(problem.root.left.model)
 value.(problem.root.right.model[:x])
 objective_value(problem.root.right.model)
 
-createSons!(problem.root.left)
-createSons!(problem.root.right)
+which_one = problemSelectionCriteria(problem.root.left.model, problem.root.right.model)
 
-# Deep
+if which_one == :left
+    next_problem = problem.root.left
+    other_problem = problem.root.right
+else
+    next_problem = problem.root.right
+    other_problem = problem.root.left
+end
 
-optimize!(problem.root.left.left.model)
-optimize!(problem.root.left.right.model)
+problem.UB = objective_value(next_problem.model)
 
-optimize!(problem.root.right.left.model)
-optimize!(problem.root.right.right.model)
+createSons!(next_problem)
 
-value.(problem.root.left.left.model[:x])
-objective_value(problem.root.left.left.model)
+optimize!(next_problem.left.model)
+optimize!(next_problem.right.model)
 
-value.(problem.root.left.right.model[:x])
-objective_value(problem.root.left.right.model)
+value.(next_problem.left.model[:x])
+objective_value(next_problem.left.model)
 
-value.(problem.root.right.left.model[:x])
-objective_value(problem.root.right.left.model)
+value.(next_problem.right.model[:x])
+objective_value(next_problem.right.model)
 
-value.(problem.root.right.right.model[:x])
-objective_value(problem.root.right.right.model)
+
+
+createSons!(other_problem)
+
+optimize!(other_problem.left.model)
+optimize!(other_problem.right.model)
+
+value.(other_problem.left.model[:x])
+objective_value(other_problem.left.model)
+
+value.(other_problem.right.model[:x])
+objective_value(other_problem.right.model)
 
 # Check
 """
