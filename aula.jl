@@ -39,31 +39,21 @@ function createSons!(node::Node, optimizer)
 end
 
 function problemSelectionCriteria(problem1::Model, problem2::Model)
-    if objective_value(problem1) > objective_value(problem2)
-        return :left
-    else
-        return :right
-    end
+    return (objective_value(problem1) > objective_value(problem2)) ? :left : :right
 end
 
-function isXInteger(x)
-    δ = 10e-4
-    for i in 1:length(x)
-        if abs(x[i] - round(x[i])) > δ
-            return false
-        end
-    end
-    return true
+function isXInteger(x, δ=10e-4)
+    return all(abs.(x - round.(x)) .< δ)
 end
 
-function solveBranchAndBound(m::Model, optimizer, ϵ = 0.01, MAX_ITER=100, M=10e9)
+function solveBranchAndBound(m::Model, optimizer, ϵ=0.01, MAX_ITER=100, M=10e9)
     # Solve relaxed problem
-    undo = relax_integrality(m)
+    _ = relax_integrality(m)
     optimize!(m)
 
     # Save solution
     root = Node(m, nothing, nothing)
-    problem = Problem(root, objective_value(m), -Inf, [NaN], :yet_unsolved)
+    problem = Problem(root, objective_value(m), -Inf, [NaN], :unsolved)
 
     # Loop
     k = 1
@@ -78,16 +68,12 @@ function solveBranchAndBound(m::Model, optimizer, ϵ = 0.01, MAX_ITER=100, M=10e
 
         # Select son
         which_one = problemSelectionCriteria(next_problem.left.model, next_problem.right.model)
-        if which_one == :left
-            next_problem = next_problem.left
-        else
-            next_problem = next_problem.right
-        end
+        next_problem = (which_one == :left) ? next_problem.left : next_problem.right
 
-        # Update problem information
+        # Update upper bound
         problem.z_UB = objective_value(next_problem.model)
 
-        # Criteria if is integer
+        # Optimal solution found if x is all integer
         if isXInteger(value.(next_problem.model[:x]))
             problem.z_BEST = objective_value(next_problem.model)
             problem.x_BEST = value.(next_problem.model[:x])
