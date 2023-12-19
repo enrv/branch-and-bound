@@ -1,4 +1,4 @@
-include("branch_and_bound_struct.jl")
+include("branch_and_bound.jl")
 
 # Wolsey example
 m = Model(Gurobi.Optimizer)
