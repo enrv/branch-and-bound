@@ -2,15 +2,15 @@ using JuMP, Gurobi
 
 mutable struct Problem
     zBEST::Float64
-    xBEST::Vector{Float64}
+    xBEST::Array{Float64}
     zUP::Float64
     status::Symbol
 end
 
 mutable struct S
-    xUB::Vector{Float64}
-    xLB::Vector{Float64}
-    xRL::Vector{Float64}
+    xUB::Array{Float64}
+    xLB::Array{Float64}
+    xRL::Array{Float64}
     zRL::Float64
     ifrac::Int
     xfrac::Float64
@@ -59,7 +59,7 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
                     prob.xBEST = next.xRL
                 end
             else
-                if next.zRL > zbest
+                if next.zRL > prob.zBEST
                     searchForMostFractional!(next)
                     l, r = createSons(next)
                     push!(L, l)
@@ -128,14 +128,3 @@ function isXInteger(x, δ=10e-4)
     return all(abs.(x - round.(x)) .< δ)
 end
 
-# Testing
-m = Model(Gurobi.Optimizer)
-set_silent(m)
-@variable(m, x[1:2], Int)
-@constraint(m, x .>= 0)
-@constraint(m, 7*x[1] - 2*x[2] <= 14)
-@constraint(m, x[2] <= 3)
-@constraint(m, 2*x[1] - 2*x[2] <= 3)
-@objective(m, Max, 4*x[1] - x[2])
-
-solveBranchAndBound(m)
