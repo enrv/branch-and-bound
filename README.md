@@ -5,7 +5,9 @@
 2023 Integer Programming Class of Prof. Street at PUC-Rio:
 
 [@AngeloMilfont](https://github.com/AngeloMilfont)
+
 [@enrv](https://github.com/enrv)
+
 [@JoaoAmorim2604](https://github.com/JoaoAmorim2604)
 
 Thanks also [@lucasximenes](https://github.com/lucasximenes) for insights.
@@ -29,4 +31,5 @@ Employing this ideia we are able to more efficiently find an optimal solution to
 We implemented the algorithm in [The Julia Programming Language](https://julialang.org), using the [JuMP.jl](https://github.com/jump-dev/JuMP.jl) optimization package. [Gurobi Optimizer](https://www.gurobi.com) may be easily replaced by any other solver that supports linear programming.
 
 `branch_and_bound.jl`: the functions and structs implemented
+
 `branch_and_bound_test.jl`: the instances of different problems solved
