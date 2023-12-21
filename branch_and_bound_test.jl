@@ -60,7 +60,7 @@ n = instance.dimension
 
 @objective(m, Max, -sum(instance.weights[i,j]*x[(i-1)*n + j] for i in 1:n, j in 1:n if i != j))
 
-prob, outmsg = solveBranchAndBound(m, Gurobi.Optimizer, 0.01, 1000000)
+prob, outmsg = solveBranchAndBound(m, 1000000)
 
 foreach(println, outmsg)
 println(prob)

@@ -16,7 +16,7 @@ mutable struct S
     xfrac::Float64
 end
 
-function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_ITER=100, M=10e9)
+function solveBranchAndBound(m::Model, MAX_ITER=100, optimizer=Gurobi.Optimizer, M=10e9)
     output_msg = []
     push!(output_msg, "========== List created with 0 unsolved problem(s) ==========")
 
@@ -54,9 +54,8 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
     push!(L, l)
     push!(L, r)
 
-    # Iteration
     k = 1
-    while length(L) > 0 && k < MAX_ITER # && (prob.zUP - prob.zBEST) > ϵ
+    while length(L) > 0 && k < MAX_ITER
         push!(output_msg, "List contains $(length(L)) problem(s).")
         push!(output_msg, "========== Iteration $k ==========")
 
@@ -96,14 +95,14 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
         k += 1
     end
 
+    push!(output_msg, "List contains $(length(L)) problem(s).")        
+    push!(output_msg, "========== Final Result ==========")
+
     if prob.zBEST > -Inf
         prob.status = :optimal
     else
         prob.status = :infeasible
     end
-
-    push!(output_msg, "List contains $(length(L)) problem(s).")        
-    push!(output_msg, "========== Final Result ==========")
 
     return prob, output_msg
 end
