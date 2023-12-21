@@ -32,4 +32,6 @@ We implemented the algorithm in [The Julia Programming Language](https://juliala
 
 `branch_and_bound.jl`: the functions and structs implemented
 
-`branch_and_bound_test.jl`: the instances of different problems solved
+`branch_and_bound_test.jl`: the instances of different problems solved by branch and bound
+
+`branch_and_bound_test_comparison.jl`: the instances of different problems solved by Gurobi
