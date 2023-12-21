@@ -42,6 +42,32 @@ prob, outmsg = solveBranchAndBound(m)
 foreach(println, outmsg)
 println(prob)
 
+# Knapsack problem - first variation
+m = Model(Gurobi.Optimizer)
+set_silent(m)
+@variable(m, x[1:4], Bin)
+@constraint(m, x .>= 0)
+@constraint(m, 0.8*x[1] + 0.4*x[2] + 0.9*x[3] + 0.4*x[4] <= 3)
+@objective(m, Max, 0.6*x[1] + 0.4*x[2] + 0.3*x[3] + 0.9*x[4])
+
+prob, outmsg = solveBranchAndBound(m)
+
+foreach(println, outmsg)
+println(prob)
+
+# Knapsack problem - second variation
+m = Model(Gurobi.Optimizer)
+set_silent(m)
+@variable(m, x[1:8], Bin)
+@constraint(m, x .>= 0)
+@constraint(m, 0.6*x[1] + 0.5*x[2] + 0.4*x[3] + 0.3*x[4] + 0.2*x[5] + 0.1*x[6] + 0.9*x[7] + 0.8*x[8] <= 3)
+@objective(m, Max, 0.2*x[1] + 0.8*x[2] + 0.4*x[3] + 0.3*x[4] + 0.5*x[5] + 0.6*x[6] + 0.7*x[7] + 0.9*x[8])
+
+prob, outmsg = solveBranchAndBound(m)
+
+foreach(println, outmsg)
+println(prob)
+
 # TSP problem
 m = Model(Gurobi.Optimizer)
 set_silent(m)
