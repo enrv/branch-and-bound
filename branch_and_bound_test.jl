@@ -10,7 +10,10 @@ set_silent(m)
 @constraint(m, 2*x[1] - 2*x[2] <= 3)
 @objective(m, Max, 4*x[1] - x[2])
 
-solveBranchAndBound(m)
+prob, outmsg = solveBranchAndBound(m)
+
+foreach(println, outmsg)
+println(prob)
 
 # Production problem
 m = Model(Gurobi.Optimizer)
@@ -21,7 +24,10 @@ set_silent(m)
 @constraint(m, x[1] + 2 * x[2] <= 4)
 @objective(m, Max, 4 * x[1] + 3 * x[2])
 
-solveBranchAndBound(m)
+prob, outmsg = solveBranchAndBound(m)
+
+foreach(println, outmsg)
+println(prob)
 
 # Knapsack problem
 m = Model(Gurobi.Optimizer)
@@ -31,18 +37,22 @@ set_silent(m)
 @constraint(m, 6*x[1] + 5*x[2] + 5*x[3] <= 10)
 @objective(m, Max, 6*x[1] + 4*x[2] + 3*x[3])
 
-solveBranchAndBound(m)
+prob, outmsg = solveBranchAndBound(m)
+
+foreach(println, outmsg)
+println(prob)
 
 # TSP problem
 m = Model(Gurobi.Optimizer)
 set_silent(m)
 using TSPLIB
 tsp_tokens = [:burma14, :ulysses16, :gr17, :gr21]
-instance = readTSPLIB(:burma14)
+instance = readTSPLIB(:ulysses16)
 n = instance.dimension
 @variable(m, x[1:n^2], Bin)
 @variable(m, u[1:n], Int)
-
+@constraint(m, x .>= 0)
+@constraint(m, u .>= 0)
 @constraint(m, [i in 1:n], sum(x[(i-1)*n + j] for j in 1:n if j != i) == 1)
 @constraint(m, [j in 1:n], sum(x[(i-1)*n + j] for i in 1:n if i != j) == 1)
 @constraint(m, [i in 2:n, j in 2:n], u[i] - u[j] + 1 <= n*(1 - x[(i-1)*n + j]))
@@ -50,4 +60,7 @@ n = instance.dimension
 
 @objective(m, Max, -sum(instance.weights[i,j]*x[(i-1)*n + j] for i in 1:n, j in 1:n if i != j))
 
-solveBranchAndBound(m)
+prob, outmsg = solveBranchAndBound(m, Gurobi.Optimizer, 0.01, 1000000)
+
+foreach(println, outmsg)
+println(prob)

@@ -17,6 +17,9 @@ mutable struct S
 end
 
 function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_ITER=100, M=10e9)
+    output_msg = []
+    push!(output_msg, "========== List created with 0 unsolved problem(s) ==========")
+
     # First relaxed problem
     _ = relax_integrality(m)
     optimize!(m)
@@ -27,8 +30,10 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
             return Problem(objective_value(m), value.(x), objective_value(m), :optimal)
         end
     elseif termination_status(m) == MOI.INFEASIBLE
+        push!(output_msg, "Initial problem is infeasible.")
         return Problem(-Inf, [NaN], -Inf, :infeasible)
     elseif termination_status(m) == MOI.UNBOUNDED
+        push!(output_msg, "Initial problem is unbounded.")
         return Problem(-Inf, [NaN], -Inf, :unbounded)
     end
 
@@ -38,7 +43,10 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
 
     L = []
     push!(L, first)
+    push!(output_msg, "Initial Problem pushed into List.")
     next = pop!(L)
+    push!(output_msg, "One problem withdrawn from list.")
+    push!(output_msg, "List contains $(length(L)) problem(s).")  
 
     searchForMostFractional!(next)
     l, r = createSons(next)
@@ -49,7 +57,12 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
     # Iteration
     k = 1
     while length(L) > 0 && k < MAX_ITER # && (prob.zUP - prob.zBEST) > ϵ
+        push!(output_msg, "List contains $(length(L)) problem(s).")
+        push!(output_msg, "========== Iteration $k ==========")
+
         next = pop!(L)
+        push!(output_msg, "One problem withdrawn from list.")
+        push!(output_msg, "List contains $(length(L)) problem(s).")
         result = solveProblem!(next, m, optimizer)
         if result == :possible
             if isXInteger(next.xRL)
@@ -57,18 +70,28 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
                 if next.zRL > prob.zBEST
                     prob.zBEST = next.zRL
                     prob.xBEST = next.xRL
+                    msg = "Iteration $k -> Possible and Integer result -> Z_best updated."
+                    push!(output_msg, msg)
+                else
+                    msg = "Iteration $k -> Possible and Integer result -> Pruned by optimality."
+                    push!(output_msg, msg)
                 end
             else
                 if next.zRL > prob.zBEST
+                    msg = "Iteration $k -> Possible and non-Integer result -> create sons."
+                    push!(output_msg, msg)
                     searchForMostFractional!(next)
                     l, r = createSons(next)
                     push!(L, l)
                     push!(L, r)
-                # else Prune by limit
+                else                
+                    msg = "Iteration $k -> Pruned by limit."
+                    push!(output_msg, msg)
                 end
             end
-            prob.zUP = next.zRL
-        # else Infeasible
+        else
+            msg = "Iteration $k -> Infeasible."
+            push!(output_msg, msg)
         end
         k += 1
     end
@@ -79,7 +102,10 @@ function solveBranchAndBound(m::Model, optimizer=Gurobi.Optimizer, ϵ=0.01, MAX_
         prob.status = :infeasible
     end
 
-    return prob
+    push!(output_msg, "List contains $(length(L)) problem(s).")        
+    push!(output_msg, "========== Final Result ==========")
+
+    return prob, output_msg
 end
 
 function searchForMostFractional!(problem::S)
@@ -127,4 +153,3 @@ end
 function isXInteger(x, δ=10e-4)
     return all(abs.(x - round.(x)) .< δ)
 end
-
